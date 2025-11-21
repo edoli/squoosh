@@ -58,8 +58,8 @@ jobs:
               // Pattern: (["'()])\/(?!squoosh\/|\/|[a-zA-Z]+:)
               const re = /(["'`\(])\/c\//g;
               const replaced = txt.replace(re, `$1${BASE}/c/`)
-                .replcae('/serviceworker.js', `${BASE}/serviceworker.js`)
-                .replcae('/manifest.json', `${BASE}/manifest.json`);
+                .replace('/serviceworker.js', `${BASE}/serviceworker.js`)
+                .replace('/manifest.json', `${BASE}/manifest.json`);
 
               if (replaced !== txt) {
                 await fsp.writeFile(p, replaced, 'utf8');
