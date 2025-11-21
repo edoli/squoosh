@@ -57,7 +57,9 @@ jobs:
               // Replace occurrences like " /... or ' /... or ( /... where ... is not //, not starting with scheme (http:), and not already starting with /squoosh/
               // Pattern: (["'()])\/(?!squoosh\/|\/|[a-zA-Z]+:)
               const re = /(["'`\(])\/c\//g;
-              const replaced = txt.replace(re, `$1${BASE}/c/`);
+              const replaced = txt.replace(re, `$1${BASE}/c/`)
+                .replcae('/serviceworker.js', `${BASE}/serviceworker.js`)
+                .replcae('/manifest.json', `${BASE}/manifest.json`);
 
               if (replaced !== txt) {
                 await fsp.writeFile(p, replaced, 'utf8');
