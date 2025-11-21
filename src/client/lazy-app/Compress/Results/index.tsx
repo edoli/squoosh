@@ -58,6 +58,56 @@ export default class Results extends Component<Props, State> {
     });
   };
 
+  private onCopy = async (e: Event) => {
+    e.preventDefault();
+
+    if (this.state.showLoadingState || !this.props.downloadUrl) return;
+
+    try {
+      const url = this.props.downloadUrl!;
+      // fetch the image as a blob
+      const res = await fetch(url, { credentials: 'same-origin' });
+      const blob = await res.blob();
+
+      // Modern clipboard API: write image as ClipboardItem
+      if (navigator.clipboard && (window as any).ClipboardItem) {
+        const clipboardItem = new (window as any).ClipboardItem({ [blob.type]: blob });
+        await navigator.clipboard.write([clipboardItem]);
+
+        // Optional: send GA event for copy
+        ga && ga('send', 'event', 'compression', 'copy', {
+          // rounded sizes like onDownload
+          metric1: Math.round(this.props.source!.file.size / 1024),
+          metric2: Math.round(this.props.imageFile!.size / 1024),
+        });
+        return;
+      }
+
+      // Fallback: try to copy image as data URL text (best-effort)
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(dataUrl);
+          return;
+        }
+      } catch (err) {
+        // fall through to final fallback
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch (err) {
+
+      console.error('Copy to clipboard failed', err);
+    }
+  };
+
   render(
     { source, imageFile, downloadUrl, flipSide, typeLabel }: Props,
     { showLoadingState }: State,
@@ -136,6 +186,18 @@ export default class Results extends Component<Props, State> {
           </div>
           {showLoadingState && <loading-spinner />}
         </a>
+        <button
+          class={showLoadingState ? style.downloadDisable : style.download}
+          title="Copy"
+          onClick={this.onCopy}
+          disabled={showLoadingState}
+        >
+          {/* 간단한 copy 아이콘 인라인 SVG */}
+          <svg class={style.downloadBlobs} viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <title>Copy</title>
+            <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zM20 5H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 14H8V7h12v12z" />
+          </svg>
+        </button>
       </div>
     );
   }
