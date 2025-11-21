@@ -27,7 +27,46 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: set PUBLIC_URL=/squoosh&&npm run build
+        run: npm run build
+
+      - name: Apply /squoosh/ base-prefix to absolute paths
+        run: |
+          mkdir -p scripts
+          cat > scripts/prefix-root.js <<'JS'
+          const { promises: fsp } = require('fs');
+          const { join } = require('path');
+
+          const BASE = '/squoosh'; // prefix to add
+          const root = process.argv[2] || 'build';
+
+          function shouldProcess(file) {
+            return ['.html', '.js', '.json', '.css', '.txt', '.xml'].some(ext => file.endsWith(ext));
+          }
+
+          (async function walk(dir) {
+            const entries = await fsp.readdir(dir, { withFileTypes: true });
+            for (const e of entries) {
+              const p = join(dir, e.name);
+              if (e.isDirectory()) {
+                await walk(p);
+                continue;
+              }
+              if (!shouldProcess(p)) continue;
+              let txt = await fsp.readFile(p, 'utf8');
+
+              // Replace occurrences like " /... or ' /... or ( /... where ... is not //, not starting with scheme (http:), and not already starting with /squoosh/
+              // Pattern: (["'()])\/(?!squoosh\/|\/|[a-zA-Z]+:)
+              const re = /([\"'\(\]])\/(?!squoosh\/|\/|[a-zA-Z]+:)/g;
+              const replaced = txt.replace(re, `$1${BASE}/`);
+
+              if (replaced !== txt) {
+                await fsp.writeFile(p, replaced, 'utf8');
+                console.log('Patched', p);
+              }
+            }
+          })(root).catch(err => { console.error(err); process.exit(1); });
+          JS
+          node scripts/prefix-root.js build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
